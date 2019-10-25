@@ -175,6 +175,12 @@ defmodule Nodes do
   end
 
   @impl true
+  def handle_call({:object_add, id}, _from, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
+    obj_lst = obj_lst ++ [id]
+    {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
+  end
+
+  @impl true
   def handle_cast({:addToNeighborMap, neighbor_id, from_pid}, state) do
     # IO.inspect(self(), label: "In add to neighbor map with #{neighbor_id} ")
     new_state = placeInNeighborMap(state, neighbor_id, from_pid)
@@ -369,6 +375,83 @@ defmodule Other_jobs do
     x = x + 1
     start_children(last, x, node_ids)
   end
+
+  def spread_objects(node_ids, x, num_obj, obj_node_ids) when x == num_obj do
+    new_id = :rand.uniform(10000)
+    sha = :crypto.hash(:sha, "#{new_id}")
+    hash_id = sha |> Base.encode16()
+    IO.puts("The hash_id is #{hash_id}")
+    # Add it to its root node
+    {root_node, _} = find_closest_root(hash_id, node_ids)
+
+    # Add it to the root's object list
+    pid = :"#{root_node}"
+    :ok = GenServer.call(pid, {:object_add, hash_id})
+
+    # Add it to random duplicates
+    dup_node_1 = Enum.random(node_ids)
+    pid1 = :"#{dup_node_1}"
+    dup_node_2 = Enum.random(node_ids)
+    pid2 = :"#{dup_node_2}"
+
+    :ok = GenServer.call(pid1, {:object_add, hash_id})
+    :ok = GenServer.call(pid2, {:object_add, hash_id})
+
+    obj_node_ids = obj_node_ids ++ [hash_id]
+  end
+
+  def spread_objects(node_ids, x, num_obj, obj_node_ids) do
+    new_id = :rand.uniform(10000)
+    sha = :crypto.hash(:sha, "#{new_id}")
+    hash_id = sha |> Base.encode16()
+    # IO.puts("The object_id is #{hash_id}")
+    # Add it to its root node
+    {root_node, _} = find_closest_root(hash_id, node_ids)
+
+    # Add it to the root's object list
+    pid = :"#{root_node}"
+    IO.inspect(root_node, label: "The object_id is #{hash_id} and has root node")
+    :ok = GenServer.call(pid, {:object_add, hash_id})
+
+    # Add it to random duplicates
+    dup_node_1 = Enum.random(node_ids)
+    pid1 = :"#{dup_node_1}"
+    dup_node_2 = Enum.random(node_ids)
+    pid2 = :"#{dup_node_2}"
+
+    :ok = GenServer.call(pid1, {:object_add, hash_id})
+    :ok = GenServer.call(pid2, {:object_add, hash_id})
+
+    x = x + 1
+    obj_node_ids = obj_node_ids ++ [hash_id]
+    spread_objects(node_ids, x, num_obj, obj_node_ids)
+  end
+
+  def find_closest_root(node, list) do
+    {ans, out} =
+      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
+        if maybe_nearer = String.jaro_distance(node, item) > distance do
+          {item, maybe_nearer}
+        else
+          {nearest, distance}
+        end
+      end)
+
+    {root_node, dist} = {ans, out}
+  end
+
+  def find_closest(node, list) do
+    {ans, out} =
+      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
+        if maybe_nearer = String.jaro_distance(node, Enum.at(item, 1)) > distance do
+          {Enum.at(item, 1), maybe_nearer}
+        else
+          {nearest, distance}
+        end
+      end)
+
+    {root_node, dist} = {ans, out}
+  end
 end
 
 # Take command line arguments
@@ -403,3 +486,8 @@ for x <- children do
   {_, childPid, _, _} = x
   Nodes.printState(childPid)
 end
+
+# Spread the objects
+num_obj = 3
+obj_node_ids = []
+obj_node_ids = Other_jobs.spread_objects(node_ids, 1, num_obj, obj_node_ids)
