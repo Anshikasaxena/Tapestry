@@ -428,27 +428,56 @@ defmodule Other_jobs do
   end
 
   def find_closest_root(node, list) do
-    {ans, out} =
-      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
-        if maybe_nearer = String.jaro_distance(node, item) > distance do
-          {item, maybe_nearer}
-        else
-          {nearest, distance}
-        end
+    stringObjID = String.to_integer(node, 16)
+    # for every item in the list calculate my difference
+    diffList = []
+
+    diffList =
+      for item <- list do
+        stringItemID = String.to_integer(item, 16)
+        diff = stringItemID - stringObjID
+        diffList = diffList ++ [abs(diff)]
+      end
+
+    IO.inspect(diffList, label: "diffList")
+
+    # get the min of the differences
+    out = Enum.min(diffList)
+
+    index =
+      Enum.find_index(diffList, fn x ->
+        x == out
       end)
+
+    ans = Enum.at(list, index)
 
     {root_node, dist} = {ans, out}
   end
 
   def find_closest(node, list) do
-    {ans, out} =
-      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
-        if maybe_nearer = String.jaro_distance(node, Enum.at(item, 1)) > distance do
-          {Enum.at(item, 1), maybe_nearer}
-        else
-          {nearest, distance}
-        end
+    stringObjID = String.to_integer(node, 16)
+    # for every item in the list calculate my difference
+    diffList = []
+
+    diffList =
+      for elem <- list do
+        item = Enum.at(elem, 1)
+        stringItemID = String.to_integer(item, 16)
+        diff = stringItemID - stringObjID
+        diffList = diffList ++ [abs(diff)]
+      end
+
+    IO.inspect(diffList, label: "diffList")
+    # get the min of the differences
+    out = Enum.min(diffList)
+
+    index =
+      Enum.find_index(diffList, fn x ->
+        x == out
       end)
+
+    elemAns = Enum.at(list, index)
+    ans = Enum.at(elemAns, 1)
 
     {root_node, dist} = {ans, out}
   end
