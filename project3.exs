@@ -36,19 +36,19 @@ defmodule Nodes do
   end
 
   def init({neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
-    # CALL Find Neighbors here 
+    # CALL Find Neighbors here
     neighbors = Find_Neighbors.make_neighbors(hash_id)
     {:ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
   def handle_call({:request, hops}, _from, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
-    # Change the state of max hops 
+    # Change the state of max hops
     IO.puts("My no. of hops is #{hops}")
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
   def handle_call({:remove_me, id}, _from, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
-    # Remove the given ID from the list 
+    # Remove the given ID from the list
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
@@ -93,13 +93,13 @@ defmodule Other_jobs do
   def start_children(last, x, node_ids) do
     # new_id = :rand.uniform(10000)
     # sha = :crypto.hash(:sha, "#{new_id}")
-    # TODO - Better way or shorter key 
+    # TODO - Better way or shorter key
     # hash_id = sha |> Base.encode16()
     hash_id = Integer.to_string(:rand.uniform(9999), 16)
     IO.puts("The hash_id is #{hash_id}")
     node_ids = node_ids ++ [hash_id]
     IO.inspect(node_ids)
-    # Maybe change later  
+    # Maybe change later
     # max_hop = Enum.at(node_ids, 0)
     neighbors = %{}
     obj_lst = []
@@ -112,14 +112,14 @@ defmodule Other_jobs do
   def spread_objects(node_ids, x, num_obj, obj_node_ids) when x == num_obj do
     hash_id = Integer.to_string(:rand.uniform(9999), 16)
     IO.puts("The hash_id is #{hash_id}")
-    # Add it to its root node 
+    # Add it to its root node
     root_node = find_closest(hash_id, node_ids)
 
-    # Add it to the root's object list 
+    # Add it to the root's object list
     pid = :"#{root_node}"
     :ok = GenServer.call(pid, {:object_add, hash_id})
 
-    # Add it to random duplicates 
+    # Add it to random duplicates
     dup_node_1 = Enum.random(node_ids)
     pid1 = :"#{dup_node_1}"
     dup_node_2 = Enum.random(node_ids)
@@ -134,14 +134,14 @@ defmodule Other_jobs do
   def spread_objects(node_ids, x, num_obj, obj_node_ids) do
     hash_id = Integer.to_string(:rand.uniform(9999), 16)
     IO.puts("The hash_id is #{hash_id}")
-    # Add it to its root node 
+    # Add it to its root node
     {root_node, _} = find_closest(hash_id, node_ids)
 
-    # Add it to the root's object list 
+    # Add it to the root's object list
     pid = :"#{root_node}"
     :ok = GenServer.call(pid, {:object_add, hash_id})
 
-    # Add it to random duplicates 
+    # Add it to random duplicates
     dup_node_1 = Enum.random(node_ids)
     pid1 = :"#{dup_node_1}"
     dup_node_2 = Enum.random(node_ids)
@@ -170,17 +170,17 @@ defmodule Other_jobs do
 end
 
 defmodule Find_Neighbors do
-  # Make a routing list and return it 
+  # Make a routing list and return it
   def make_neighbors(node) do
-    # Isabel's code comes here 
-    # Return the neigbor list 
+    # Isabel's code comes here
+    # Return the neigbor list
   end
 end
 
 defmodule Job_done do
   def terminate() do
     # Make a handle call to everyone to remove me
-    # Ask Supervisor to kill me 
+    # Ask Supervisor to kill me
   end
 end
 
@@ -211,8 +211,8 @@ defmodule Routing_101 do
 
   def next_hop(obj_id, next_node) do
     p = String.length(next_node) - String.length(String.trim_leading(next_node, obj_id))
-    # get the routing table for the next node 
-    # Check if it works with the name of the node 
+    # get the routing table for the next node
+    # Check if it works with the name of the node
     {table, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
     # Check if its p or p-1
     {:ok, level} = Map.fetch(table, p)
@@ -247,7 +247,7 @@ defmodule Routing_101 do
   end
 end
 
-# Main Application 
+# Main Application
 nodes = 5
 requests = 5
 req_rng = Range.new(1, requests)
@@ -261,11 +261,11 @@ last = nodes
 node_ids = []
 node_ids = Other_jobs.start_children(last, 1, node_ids)
 
-# Spread the objects 
+# Spread the objects
 num_obj = 10
 obj_node_ids = Other_jobs.spread_objects(node_ids, 1, num_obj, obj_node_ids)
 
-# Publish the objects 
+# Publish the objects
 for node <- node_ids do
   # Check
   {_, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
@@ -275,7 +275,7 @@ for node <- node_ids do
   end
 end
 
-# Start sending requests 
+# Start sending requests
 for x <- req_rng do
   for node <- node_ids do
     request_this = Enum.random(obj_node_ids)
@@ -293,6 +293,6 @@ for x <- req_rng do
   end
 end
 
-# Keeping Count of number of hops and triggering termination 
+# Keeping Count of number of hops and triggering termination
 
 IO.puts("ALL done")
