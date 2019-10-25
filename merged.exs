@@ -180,6 +180,15 @@ defmodule Nodes do
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
+  def handle_call(
+        {:obj_lnk_add, obj_id, server_id},
+        _from,
+        {neighbors, hash_id, obj_lst, obj_lnk, max_hop}
+      ) do
+    obj_lnk = Map.put_new(obj_lnk, obj_id, server_id)
+    {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
+  end
+
   @impl true
   def handle_cast({:addToNeighborMap, neighbor_id, from_pid}, state) do
     # IO.inspect(self(), label: "In add to neighbor map with #{neighbor_id} ")
@@ -380,10 +389,9 @@ defmodule Other_jobs do
     new_id = :rand.uniform(10000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
-    IO.puts("The hash_id is #{hash_id}")
     # Add it to its root node
     {root_node, _} = find_closest_root(hash_id, node_ids)
-
+    IO.inspect(root_node, label: "The object_id is #{hash_id} and has root node")
     # Add it to the root's object list
     pid = :"#{root_node}"
     :ok = GenServer.call(pid, {:object_add, hash_id})
@@ -428,58 +436,72 @@ defmodule Other_jobs do
   end
 
   def find_closest_root(node, list) do
-    stringObjID = String.to_integer(node, 16)
-    # for every item in the list calculate my difference
-    diffList = []
-
-    diffList =
-      for item <- list do
-        stringItemID = String.to_integer(item, 16)
-        diff = stringItemID - stringObjID
-        diffList = diffList ++ [abs(diff)]
-      end
-
-    IO.inspect(diffList, label: "diffList")
-
-    # get the min of the differences
-    out = Enum.min(diffList)
-
-    index =
-      Enum.find_index(diffList, fn x ->
-        x == out
+    {ans, out} =
+      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
+        if (maybe_nearer = String.jaro_distance(node, item)) > distance do
+          {item, maybe_nearer}
+        else
+          {nearest, distance}
+        end
       end)
 
-    ans = Enum.at(list, index)
-
+    {root_node, dist} = {ans, out}
+    IO.inspect(root_node, label: "root_node")
     {root_node, dist} = {ans, out}
   end
 
   def find_closest(node, list) do
-    stringObjID = String.to_integer(node, 16)
-    # for every item in the list calculate my difference
-    diffList = []
-
-    diffList =
-      for elem <- list do
-        item = Enum.at(elem, 1)
-        stringItemID = String.to_integer(item, 16)
-        diff = stringItemID - stringObjID
-        diffList = diffList ++ [abs(diff)]
-      end
-
-    IO.inspect(diffList, label: "diffList")
-    # get the min of the differences
-    out = Enum.min(diffList)
-
-    index =
-      Enum.find_index(diffList, fn x ->
-        x == out
+    {ans, out} =
+      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
+        if maybe_nearer = String.jaro_distance(node, Enum.at(item, 1)) > distance do
+          {Enum.at(item, 1), maybe_nearer}
+        else
+          {nearest, distance}
+        end
       end)
 
-    elemAns = Enum.at(list, index)
-    ans = Enum.at(elemAns, 1)
-
     {root_node, dist} = {ans, out}
+  end
+end
+
+defmodule Routing_101 do
+  def publish_routing(obj_id, next_node, server_id) do
+    if next_node == server_id do
+      {node, dist} = next_hop(obj_id, next_node)
+      # IO.inspect(node, label: "#{next_node} going to")
+
+      # if (distance between new friend and object ) < (distance between current and object)
+      # ?give up object
+      if dist <= String.jaro_distance(obj_id, server_id) do
+        publish_routing(obj_id, node, server_id)
+      else
+        IO.puts("I am root")
+      end
+    else
+      {_, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
+
+      if obj_id in obj_lst do
+        1
+      else
+        # genserver call
+        pid = :"#{next_node}"
+
+        :ok = GenServer.call(pid, {:obj_lnk_add, obj_id, server_id})
+        {node, _} = next_hop(obj_id, next_node)
+        IO.inspect(node, label: "#{next_node} going to")
+        publish_routing(obj_id, node, server_id)
+      end
+    end
+  end
+
+  def next_hop(obj_id, next_node) do
+    p = String.length(next_node) - String.length(String.trim_leading(next_node, obj_id))
+    # get the routing table for the next node
+    # Check if it works with the name of the node
+    {table, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
+    # Check if its p or p-1
+    {:ok, level} = Map.fetch(table, p)
+    {node, dist} = Other_jobs.find_closest(obj_id, level)
   end
 end
 
@@ -504,6 +526,7 @@ node_ids = Other_jobs.start_children(last, 1, node_ids)
 
 children = DynamicSupervisor.which_children(DyServer)
 
+# Adding to Tapestry
 for x <- children do
   {_, childPid, _, _} = x
   Nodes.addToTapestry(childPid)
@@ -511,12 +534,27 @@ end
 
 :timer.sleep(2000)
 
+# Spread the objects
+num_obj = 3
+obj_node_ids = []
+obj_node_ids = Other_jobs.spread_objects(node_ids, 1, num_obj, obj_node_ids)
+
 for x <- children do
   {_, childPid, _, _} = x
   Nodes.printState(childPid)
 end
 
-# Spread the objects
-num_obj = 3
-obj_node_ids = []
-obj_node_ids = Other_jobs.spread_objects(node_ids, 1, num_obj, obj_node_ids)
+# Publish the objects
+for node <- node_ids do
+  # Check
+  {_, _, obj_lst, _, _} = :sys.get_state(:"#{node}")
+
+  for object <- obj_lst do
+    Routing_101.publish_routing(object, node, node)
+  end
+end
+
+for x <- children do
+  {_, childPid, _, _} = x
+  Nodes.printState(childPid)
+end
