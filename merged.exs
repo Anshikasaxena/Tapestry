@@ -71,6 +71,12 @@ defmodule Nodes do
     {:reply, :ok, new_state}
   end
 
+  def handle_call({:request, hops}, _from, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
+    # Change the state of max hops
+    IO.puts("My no. of hops is #{hops}")
+    {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
+  end
+
   @impl true
   def handle_call({:populateNeighbors, my_id, my_pid}, _from, state) do
     # IO.inspect(my_pid, label: "\nIn populateNeighbors server. My pid is")
@@ -180,12 +186,16 @@ defmodule Nodes do
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
+  @impl true
   def handle_call(
         {:obj_lnk_add, obj_id, server_id},
         _from,
         {neighbors, hash_id, obj_lst, obj_lnk, max_hop}
       ) do
+    IO.puts("in add")
     obj_lnk = Map.put_new(obj_lnk, obj_id, server_id)
+
+    IO.inspect(obj_lnk, label: "obj_link")
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
@@ -356,7 +366,7 @@ end
 
 defmodule Other_jobs do
   def start_children(last, x, node_ids) when x == last do
-    new_id = :rand.uniform(10000)
+    new_id = :rand.uniform(900_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
     IO.puts("The hash_id is #{hash_id}")
@@ -370,7 +380,7 @@ defmodule Other_jobs do
   end
 
   def start_children(last, x, node_ids) do
-    new_id = :rand.uniform(10000)
+    new_id = :rand.uniform(900_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
     # IO.puts("The hash_id is #{hash_id}")
@@ -386,7 +396,7 @@ defmodule Other_jobs do
   end
 
   def spread_objects(node_ids, x, num_obj, obj_node_ids) when x == num_obj do
-    new_id = :rand.uniform(10000)
+    new_id = :rand.uniform(900_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
     # Add it to its root node
@@ -409,7 +419,7 @@ defmodule Other_jobs do
   end
 
   def spread_objects(node_ids, x, num_obj, obj_node_ids) do
-    new_id = :rand.uniform(10000)
+    new_id = :rand.uniform(900_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
     # IO.puts("The object_id is #{hash_id}")
@@ -451,44 +461,102 @@ defmodule Other_jobs do
   end
 
   def find_closest(node, list) do
-    {ans, out} =
-      Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
-        if maybe_nearer = String.jaro_distance(node, Enum.at(item, 1)) > distance do
-          {Enum.at(item, 1), maybe_nearer}
+    # {ans, out} =
+    #   Enum.reduce(list, {"", 0}, fn item, {nearest, distance} ->
+    #     if maybe_nearer = String.jaro_distance(node, Enum.at(item, 1)) > distance do
+    #       {Enum.at(item, 1), maybe_nearer}
+    #     else
+    #       {nearest, distance}
+    #     end
+    #   end)
+    #
+    # {ans, out} = ls
+
+    item = Enum.at(list, 0)
+    distance = String.jaro_distance(node, Enum.at(item, 1))
+    min_node = Enum.at(item, 1)
+
+    newminList =
+      for item <- list do
+        nodefound = Enum.at(item, 1)
+        maybe_nearer = String.jaro_distance(node, nodefound)
+
+        if maybe_nearer < distance do
+          IO.inspect(maybe_nearer, label: "maybe_nearer")
+          min_node = nodefound
+          {min_node, maybe_nearer}
         else
-          {nearest, distance}
+          IO.inspect(distance, label: "distance")
+          {min_node, distance}
         end
+      end
+
+    distanceList = []
+
+    distanceList =
+      Enum.map(newminList, fn item ->
+        {node, dist} = item
+        distanceList = distanceList ++ [dist]
       end)
 
-    {root_node, dist} = {ans, out}
+    IO.inspect(distanceList, label: "distanceList")
+
+    minDist = Enum.min(distanceList)
+
+    index =
+      Enum.find_index(distanceList, fn x ->
+        x == minDist
+      end)
+
+    IO.inspect(index, label: "index")
+
+    {min_node2, distance2} = Enum.at(newminList, index)
+    IO.inspect(min_node2, label: "min_node2")
+    IO.inspect(distance2, label: "distance2")
+
+    {root_node, dist} = {min_node2, distance2}
   end
 end
 
 defmodule Routing_101 do
   def publish_routing(obj_id, next_node, server_id) do
     if next_node == server_id do
+      IO.puts("The server node analysis - #{server_id}")
+      IO.puts("THE object is #{obj_id}")
       {node, dist} = next_hop(obj_id, next_node)
+      IO.puts("The next closest thing is #{node}")
+      # IO.puts("#{obj_ - #{server_id}} inside #{server_id} if")
       # IO.inspect(node, label: "#{next_node} going to")
 
       # if (distance between new friend and object ) < (distance between current and object)
       # ?give up object
-      if dist <= String.jaro_distance(obj_id, server_id) do
+      dist2 = String.jaro_distance(obj_id, server_id)
+      IO.puts("Dist b/w object and next closest node is #{dist}")
+      IO.puts("Dist b/w object and server node is #{dist2}")
+
+      if dist < dist2 do
+        IO.puts("Im not a root, still a server and so we go to node #{node}")
         publish_routing(obj_id, node, server_id)
       else
         IO.puts("I am root")
       end
     else
+      IO.puts("Moving forward")
+      IO.puts("You're at #{next_node}")
       {_, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
 
       if obj_id in obj_lst do
-        1
+        IO.puts("You've arrived at the root node")
       else
         # genserver call
         pid = :"#{next_node}"
-
+        IO.puts("Adding object link")
         :ok = GenServer.call(pid, {:obj_lnk_add, obj_id, server_id})
+        IO.puts("Added link")
         {node, _} = next_hop(obj_id, next_node)
-        IO.inspect(node, label: "#{next_node} going to")
+        # IO.inspect(node, label: "#{next_node} going to")
+        IO.puts("The next closest thing is #{node}")
+        IO.puts("YOUre going to #{node}")
         publish_routing(obj_id, node, server_id)
       end
     end
@@ -500,8 +568,65 @@ defmodule Routing_101 do
     # Check if it works with the name of the node
     {table, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
     # Check if its p or p-1
-    {:ok, level} = Map.fetch(table, p)
-    {node, dist} = Other_jobs.find_closest(obj_id, level)
+    if(:error != Map.fetch(table, 0)) do
+      if(p == 0) do
+        i = String.at(obj_id, 0)
+        level = Map.fetch(table, 0)
+        {_, level_p} = level
+
+        found_neighbor =
+          Enum.find(level_p, fn x ->
+            [index, neighbor, pid] = x
+            index == i
+          end)
+
+        if(found_neighbor == nil) do
+          {nil, 0}
+        else
+          [index, neighbor, pid] = found_neighbor
+          {neighbor, 0}
+        end
+      else
+        {level_ind, level_list} = Enum.at(table, p)
+
+        {node, dist} = Other_jobs.find_closest(obj_id, level_list)
+      end
+    else
+      {nil, 0}
+    end
+  end
+
+  def routing_route(obj_id, node_id, n) do
+    {_, _, obj_lst, obj_lnk, _} = :sys.get_state(:"#{node_id}")
+
+    {send_to, n} =
+      if obj_id in obj_lst && (n = 0) do
+        {send_to, n} = {1, 0}
+      else
+        {send_to, n} =
+          cond do
+            obj_id in obj_lst ->
+              {send_to, n} = {node_id, n}
+
+            # Map.has_key?(obj_lnk, obj_id) ->
+            #   send_to = Map.get(obj_lnk, obj_id)
+            #   {send_to, n} = {send_to, n}
+
+            true ->
+              {next_node, _} = next_hop(obj_id, node_id)
+
+              if next_node != nil do
+                n = n + 1
+                routing_route(obj_id, next_node, n)
+              else
+                {node_id, n}
+              end
+          end
+
+        {send_to, n} = {send_to, n}
+      end
+
+    {send_to, n} = {send_to, n}
   end
 end
 
@@ -544,13 +669,31 @@ for x <- children do
   Nodes.printState(childPid)
 end
 
-# Publish the objects
-for node <- node_ids do
-  # Check
-  {_, _, obj_lst, _, _} = :sys.get_state(:"#{node}")
+# # Publish the objects
+# for node <- node_ids do
+#   # Check
+#   {_, _, obj_lst, _, _} = :sys.get_state(:"#{node}")
+#
+#   for object <- obj_lst do
+#     Routing_101.publish_routing(object, node, node)
+#   end
+# end
 
-  for object <- obj_lst do
-    Routing_101.publish_routing(object, node, node)
+# Start sending requests
+for x <- req_rng do
+  for node <- node_ids do
+    request_this = Enum.random(obj_node_ids)
+    IO.puts("Sending Message to #{request_this}")
+    # pid = :"#{node}"
+    # :ok = GenServer.call(pid, {:request, send_to})
+    {send_to, n} = Routing_101.routing_route(request_this, node, 0)
+
+    if send_to == 1 do
+      1
+    else
+      pid = :"#{send_to}"
+      :ok = GenServer.call(pid, {:request, n})
+    end
   end
 end
 
