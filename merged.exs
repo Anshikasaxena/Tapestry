@@ -74,6 +74,15 @@ defmodule Nodes do
   def handle_call({:request, hops}, _from, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
     # Change the state of max hops
     IO.puts("My no. of hops is #{hops}")
+
+    max_hop =
+      if(hops > max_hop) do
+        max_hop = hops
+      else
+        max_hop
+      end
+
+    IO.puts("My no. of hops is #{max_hop}")
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
@@ -697,7 +706,18 @@ for x <- req_rng do
   end
 end
 
-for x <- children do
-  {_, childPid, _, _} = x
-  Nodes.printState(childPid)
-end
+maxhopList = []
+
+maxhopList =
+  for x <- children do
+    {_, childPid, _, _} = x
+    Nodes.printState(childPid)
+    {_, _, _, _, max_hop} = :sys.get_state(childPid)
+    maxhopList = maxhopList ++ [max_hop]
+  end
+
+flatmaxhopList = List.flatten(maxhopList)
+IO.inspect(flatmaxhopList, label: "maxhopList")
+
+maxHop = Enum.max(flatmaxhopList)
+IO.inspect(maxHop, label: "maxHop")
