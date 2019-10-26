@@ -8,16 +8,12 @@ else
 end
 
 list = ["D08B", "69FA", "8DD9", "E133", "F3FD"]
-node = "1835"
+objID = "18A5"
 
-{ans, out} =
-  Enum.reduce(list, {"", FFFF}, fn item, {nearest, distance} ->
-    if (maybe_nearer = String.jaro_distance(node, item)) < distance do
-      {item, maybe_nearer}
-    else
-      {nearest, distance}
-    end
-  end)
+# for every char in list element
+#   check if char from obj id ==  index
+charList = String.to_charlist(objID)
+char1 = Enum.at(charList, 0)
 
-{root_node, dist} = {ans, out}
-IO.inspect(root_node, label: "root_node")
+IO.inspect(char1, label: "objID")
+Enum.each()

@@ -12,7 +12,7 @@ defmodule DyServer do
         restart: :temporary
       )
 
-    # IO.puts("Got the  child_spec")
+    # #IO.puts("Got the  child_spec")
     {:ok, child} = DynamicSupervisor.start_child(__MODULE__, child_spec)
   end
 
@@ -32,7 +32,7 @@ defmodule Nodes do
         name: :"#{id}"
       )
 
-    #  IO.puts("GenServer started")
+    #  #IO.puts("GenServer started")
   end
 
   def init({neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
@@ -44,14 +44,14 @@ defmodule Nodes do
   @impl true
   def handle_call({:addToTapestry}, _from, state) do
     # pid = Kernel.inspect(self())
-    # IO.inspect(state, label: "\nMy #{pid} Initial State")
+    # #IO.inspect(state, label: "\nMy #{pid} Initial State")
     my_id = elem(state, 1)
 
     # OG = N as an object; objects routed by ID
     h_node_pid = contactGatewayNode(self())
 
     hNodeToRoute(h_node_pid, my_id)
-    # IO.inspect(state, label: "\nAdded To Tapestry")
+    # #IO.inspect(state, label: "\nAdded To Tapestry")
 
     {:reply, :ok, state}
   end
@@ -60,20 +60,20 @@ defmodule Nodes do
   def handle_call({:receiveHello, from_id}, from, state) do
     # _pid = Kernel.inspect(self())
     # _fid = Kernel.inspect(from_pid)
-    # IO.inspect(state, label: "\n #{pid} Received Hello from #{fid}. \nMy old state")
-    # IO.inspect(state, label: "\nReceived Hello from #{neighbor_id}. \nMy old state")
+    # #IO.inspect(state, label: "\n #{pid} Received Hello from #{fid}. \nMy old state")
+    # #IO.inspect(state, label: "\nReceived Hello from #{neighbor_id}. \nMy old state")
 
     {from_pid, _ok} = from
     new_state = placeInNeighborMap(state, from_id, from_pid)
 
-    # IO.inspect(new_state, label: "\nMy new state")
+    # #IO.inspect(new_state, label: "\nMy new state")
 
     {:reply, :ok, new_state}
   end
 
   def handle_call({:request, hops}, _from, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}) do
     # Change the state of max hops
-    IO.puts("My no. of hops is #{hops}")
+    # IO.puts("My no. of hops is #{hops}")
 
     max_hop =
       if(hops > max_hop) do
@@ -82,13 +82,13 @@ defmodule Nodes do
         max_hop
       end
 
-    IO.puts("My no. of hops is #{max_hop}")
+    # IO.puts("My no. of hops is #{max_hop}")
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
   @impl true
   def handle_call({:populateNeighbors, my_id, my_pid}, _from, state) do
-    # IO.inspect(my_pid, label: "\nIn populateNeighbors server. My pid is")
+    # #IO.inspect(my_pid, label: "\nIn populateNeighbors server. My pid is")
     # get neighbor map from h
     # {from_pid, _ok} = from
     {neighbor_map, neighbor_id, _, _, _} = state
@@ -98,7 +98,7 @@ defmodule Nodes do
     if(checkIfLevelExists(neighbor_map, j) == true) do
       # go to that level on the Map
       level = getLevel(neighbor_map, j)
-      # IO.inspect(level, label: "level")
+      # #IO.inspect(level, label: "level")
 
       # check if there is a neighbor with the same "i" as you
       iInList =
@@ -119,16 +119,16 @@ defmodule Nodes do
         next_neighbor_id = Enum.at(neighbor, 1)
         next_neighbor_pid = Enum.at(neighbor, 2)
         new_j = j + 1
-        # IO.puts("here 1")
+        # #IO.puts("here 1")
 
         if next_neighbor_id != my_id do
           GenServer.call(next_neighbor_pid, {:routeN, new_j, my_id, my_pid}, :infinity)
         end
       else
-        # IO.inspect(level, label: "level")
+        # #IO.inspect(level, label: "level")
         # copy level map
         for elem <- level do
-          # IO.inspect("should add friend")
+          # #IO.inspect("should add friend")
           n_id = Enum.at(elem, 1)
           n_pid = Enum.at(elem, 2)
           GenServer.cast(my_pid, {:addToNeighborMap, n_id, n_pid})
@@ -140,16 +140,16 @@ defmodule Nodes do
         next_neighbor_id = Enum.at(neighbor, 1)
         next_neighbor_pid = Enum.at(neighbor, 2)
         new_j = j + 1
-        # IO.puts("here 1")
+        # #IO.puts("here 1")
 
         if next_neighbor_id != my_id do
           GenServer.call(next_neighbor_pid, {:routeN, new_j, my_id, my_pid}, :infinity)
         end
       end
 
-      # IO.puts("here 2")
+      # #IO.puts("here 2")
     else
-      # IO.inspect("i don't know")
+      # #IO.inspect("i don't know")
     end
 
     {:reply, :ok, state}
@@ -159,10 +159,10 @@ defmodule Nodes do
   def handle_call({:routeN, j, my_id, my_pid}, _from, state) do
     # in neighbors state
     {neighbor_map, _neighbor_id, _, _, _} = state
-    # IO.inspect(my_pid, label: "In routeN looking from #{j} neighbor_id")
+    # #IO.inspect(my_pid, label: "In routeN looking from #{j} neighbor_id")
     # # check if level exists
     if(checkIfLevelExists(neighbor_map, j) == true) do
-      # IO.inspect("level #{j} exists")
+      # #IO.inspect("level #{j} exists")
       # go to that level on the Map
       level = getLevel(neighbor_map, j)
       # get close item and route there
@@ -175,7 +175,7 @@ defmodule Nodes do
         GenServer.call(next_neighbor_pid, {:routeN, new_j, my_id, my_pid}, :infinity)
       end
     else
-      # IO.inspect("i don't know")
+      # #IO.inspect("i don't know")
     end
 
     {:reply, :ok, state}
@@ -184,7 +184,7 @@ defmodule Nodes do
   @impl true
   def handle_call({:printState}, _from, state) do
     pid = Kernel.inspect(self())
-    IO.inspect(state, label: "\n My #{pid} State is")
+    # IO.inspect(state, label: "\n My #{pid} State is")
 
     {:reply, :ok, state}
   end
@@ -201,16 +201,16 @@ defmodule Nodes do
         _from,
         {neighbors, hash_id, obj_lst, obj_lnk, max_hop}
       ) do
-    IO.puts("in add")
+    # IO.puts("in add")
     obj_lnk = Map.put_new(obj_lnk, obj_id, server_id)
 
-    IO.inspect(obj_lnk, label: "obj_link")
+    # IO.inspect(obj_lnk, label: "obj_link")
     {:reply, :ok, {neighbors, hash_id, obj_lst, obj_lnk, max_hop}}
   end
 
   @impl true
   def handle_cast({:addToNeighborMap, neighbor_id, from_pid}, state) do
-    # IO.inspect(self(), label: "In add to neighbor map with #{neighbor_id} ")
+    # #IO.inspect(self(), label: "In add to neighbor map with #{neighbor_id} ")
     new_state = placeInNeighborMap(state, neighbor_id, from_pid)
     {:noreply, new_state}
   end
@@ -237,7 +237,7 @@ defmodule Nodes do
 
   def hNodeToRoute(h_node_pid, my_id) do
     # pid = Kernel.inspect(self())
-    # IO.inspect(pid, label: "\nMy PiD ")
+    # #IO.inspect(pid, label: "\nMy PiD ")
 
     # Send Hello to neighbor no matter what so they can check if they need to add me to their map
     sendHello(h_node_pid, my_id)
@@ -254,7 +254,7 @@ defmodule Nodes do
   def placeInNeighborMap(my_state, from_id, from_pid) do
     # pid = Kernel.inspect(self())
     my_id = elem(my_state, 1)
-    # IO.inspect(neighbor_id, label: "\nPlaceInNeighborMap my id is #{pid} and neighbor_id")
+    # #IO.inspect(neighbor_id, label: "\nPlaceInNeighborMap my id is #{pid} and neighbor_id")
 
     if(my_id != from_id) do
       my_neighborMap = elem(my_state, 0)
@@ -266,7 +266,7 @@ defmodule Nodes do
       i =
         if j > 0 do
           j_corrected = j - 1
-          # IO.puts("Length of most in common prefix #{j_corrected}")
+          # #IO.puts("Length of most in common prefix #{j_corrected}")
 
           _prefix = String.slice(my_id, 0..j_corrected)
 
@@ -274,7 +274,7 @@ defmodule Nodes do
           i_index = j_corrected + 1
           i = String.at(from_id, i_index)
 
-          # IO.puts("Common prefix between #{my_id} and #{neighbor_id} is #{prefix} and i is: #{i}")
+          # #IO.puts("Common prefix between #{my_id} and #{neighbor_id} is #{prefix} and i is: #{i}")
           i
         else
           # i is the first elemment
@@ -294,12 +294,12 @@ defmodule Nodes do
             _new_my_neighborMap =
               updateYourNeighborMap(j, my_neighborMap, new_neighbor, from_pid, my_id)
           else
-            # IO.puts("level j not here yet")
+            # #IO.puts("level j not here yet")
             GenServer.cast(from_pid, {:addToNeighborMap, my_id, self()})
             _new_my_neighborMap = Map.put(my_neighborMap, j, [[i, from_id, from_pid]])
           end
         else
-          # IO.puts("level j not here yet")
+          # #IO.puts("level j not here yet")
           GenServer.cast(from_pid, {:addToNeighborMap, my_id, self()})
           _new_my_neighborMap = Map.put(my_neighborMap, j, [[i, from_id, from_pid]])
         end
@@ -313,14 +313,14 @@ defmodule Nodes do
   end
 
   def findJ(my_id, neighbor_id, j) do
-    # IO.inspect(j, label: "in findJ with #{my_id} and #{neighbor_id}")
+    # #IO.inspect(j, label: "in findJ with #{my_id} and #{neighbor_id}")
     prefixA = String.slice(my_id, 0..j)
-    # IO.inspect(prefixA, label: "prefixA")
+    # #IO.inspect(prefixA, label: "prefixA")
     prefixB = String.slice(neighbor_id, 0..j)
-    # IO.inspect(prefixB, label: "prefixB")
+    # #IO.inspect(prefixB, label: "prefixB")
 
     if prefixA == prefixB do
-      # IO.puts("It's A Match")
+      # #IO.puts("It's A Match")
       new_j = j + 1
       findJ(my_id, neighbor_id, new_j)
       # new_j
@@ -332,7 +332,7 @@ defmodule Nodes do
   def updateYourNeighborMap(j, my_neighborMap, new_neighbor, from_pid, my_id) do
     {_current_neighbors, updateedNeighborMap} =
       Map.get_and_update(my_neighborMap, j, fn current_neighbors ->
-        # IO.inspect(current_neighbors, label: "current_neighbors")
+        # #IO.inspect(current_neighbors, label: "current_neighbors")
         # check for duplicates
         if Enum.member?(current_neighbors, new_neighbor) do
           {current_neighbors, current_neighbors}
@@ -344,7 +344,7 @@ defmodule Nodes do
         end
       end)
 
-    # IO.inspect(updateedNeighborMap, label: "updateedNeighborMap")
+    # #IO.inspect(updateedNeighborMap, label: "updateedNeighborMap")
     updateedNeighborMap
   end
 
@@ -363,7 +363,7 @@ defmodule Nodes do
   def getLevel(h_neighbor_map, i) do
     i_level_neighbor_map = Map.fetch(h_neighbor_map, i)
 
-    # IO.inspect(i_level_neighbor_map, label: "#{i}th level NeighborMap_i from H")
+    # #IO.inspect(i_level_neighbor_map, label: "#{i}th level NeighborMap_i from H")
     {_, i_level} = i_level_neighbor_map
     i_level
   end
@@ -375,26 +375,26 @@ end
 
 defmodule Other_jobs do
   def start_children(last, x, node_ids) when x == last do
-    new_id = :rand.uniform(900_000)
+    new_id = :rand.uniform(500_000_000_000_000_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
-    IO.puts("The hash_id is #{hash_id}")
+    # IO.puts("The hash_id is #{hash_id}")
     neighbors = %{}
     obj_lst = []
     obj_lnk = %{}
     max_hop = 0
     DyServer.start_child(neighbors, hash_id, obj_lst, obj_lnk, max_hop)
-    # IO.puts("ALL children started")
+    # #IO.puts("ALL children started")
     node_ids = node_ids ++ [hash_id]
   end
 
   def start_children(last, x, node_ids) do
-    new_id = :rand.uniform(900_000)
+    new_id = :rand.uniform(500_000_000_000_000_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
-    # IO.puts("The hash_id is #{hash_id}")
+    # #IO.puts("The hash_id is #{hash_id}")
     node_ids = node_ids ++ [hash_id]
-    # IO.inspect(node_ids)
+    # #IO.inspect(node_ids)
     neighbors = %{}
     obj_lst = []
     obj_lnk = %{}
@@ -405,12 +405,12 @@ defmodule Other_jobs do
   end
 
   def spread_objects(node_ids, x, num_obj, obj_node_ids) when x == num_obj do
-    new_id = :rand.uniform(900_000)
+    new_id = :rand.uniform(500_000_000_000_000_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
     # Add it to its root node
     {root_node, _} = find_closest_root(hash_id, node_ids)
-    IO.inspect(root_node, label: "The object_id is #{hash_id} and has root node")
+    # IO.inspect(root_node, label: "The object_id is #{hash_id} and has root node")
     # Add it to the root's object list
     pid = :"#{root_node}"
     :ok = GenServer.call(pid, {:object_add, hash_id})
@@ -428,16 +428,16 @@ defmodule Other_jobs do
   end
 
   def spread_objects(node_ids, x, num_obj, obj_node_ids) do
-    new_id = :rand.uniform(900_000)
+    new_id = :rand.uniform(500_000_000_000_000_000)
     sha = :crypto.hash(:sha, "#{new_id}")
     hash_id = sha |> Base.encode16()
-    # IO.puts("The object_id is #{hash_id}")
+    # #IO.puts("The object_id is #{hash_id}")
     # Add it to its root node
     {root_node, _} = find_closest_root(hash_id, node_ids)
 
     # Add it to the root's object list
     pid = :"#{root_node}"
-    IO.inspect(root_node, label: "The object_id is #{hash_id} and has root node")
+    # IO.inspect(root_node, label: "The object_id is #{hash_id} and has root node")
     :ok = GenServer.call(pid, {:object_add, hash_id})
 
     # Add it to random duplicates
@@ -465,7 +465,7 @@ defmodule Other_jobs do
       end)
 
     {root_node, dist} = {ans, out}
-    IO.inspect(root_node, label: "root_node")
+    # IO.inspect(root_node, label: "root_node")
     {root_node, dist} = {ans, out}
   end
 
@@ -491,11 +491,11 @@ defmodule Other_jobs do
         maybe_nearer = String.jaro_distance(node, nodefound)
 
         if maybe_nearer < distance do
-          IO.inspect(maybe_nearer, label: "maybe_nearer")
+          # IO.inspect(maybe_nearer, label: "maybe_nearer")
           min_node = nodefound
           {min_node, maybe_nearer}
         else
-          IO.inspect(distance, label: "distance")
+          # IO.inspect(distance, label: "distance")
           {min_node, distance}
         end
       end
@@ -508,7 +508,7 @@ defmodule Other_jobs do
         distanceList = distanceList ++ [dist]
       end)
 
-    IO.inspect(distanceList, label: "distanceList")
+    # IO.inspect(distanceList, label: "distanceList")
 
     minDist = Enum.min(distanceList)
 
@@ -517,11 +517,11 @@ defmodule Other_jobs do
         x == minDist
       end)
 
-    IO.inspect(index, label: "index")
+    # IO.inspect(index, label: "index")
 
     {min_node2, distance2} = Enum.at(newminList, index)
-    IO.inspect(min_node2, label: "min_node2")
-    IO.inspect(distance2, label: "distance2")
+    # IO.inspect(min_node2, label: "min_node2")
+    # IO.inspect(distance2, label: "distance2")
 
     {root_node, dist} = {min_node2, distance2}
   end
@@ -530,42 +530,42 @@ end
 defmodule Routing_101 do
   def publish_routing(obj_id, next_node, server_id) do
     if next_node == server_id do
-      IO.puts("The server node analysis - #{server_id}")
-      IO.puts("THE object is #{obj_id}")
+      # IO.puts("The server node analysis - #{server_id}")
+      # IO.puts("THE object is #{obj_id}")
       {node, dist} = next_hop(obj_id, next_node)
-      IO.puts("The next closest thing is #{node}")
-      # IO.puts("#{obj_ - #{server_id}} inside #{server_id} if")
-      # IO.inspect(node, label: "#{next_node} going to")
+      # IO.puts("The next closest thing is #{node}")
+      # #IO.puts("#{obj_ - #{server_id}} inside #{server_id} if")
+      # #IO.inspect(node, label: "#{next_node} going to")
 
       # if (distance between new friend and object ) < (distance between current and object)
       # ?give up object
       dist2 = String.jaro_distance(obj_id, server_id)
-      IO.puts("Dist b/w object and next closest node is #{dist}")
-      IO.puts("Dist b/w object and server node is #{dist2}")
+      # IO.puts("Dist b/w object and next closest node is #{dist}")
+      # IO.puts("Dist b/w object and server node is #{dist2}")
 
       if dist < dist2 do
-        IO.puts("Im not a root, still a server and so we go to node #{node}")
+        # IO.puts("Im not a root, still a server and so we go to node #{node}")
         publish_routing(obj_id, node, server_id)
       else
-        IO.puts("I am root")
+        # IO.puts("I am root")
       end
     else
-      IO.puts("Moving forward")
-      IO.puts("You're at #{next_node}")
+      # IO.puts("Moving forward")
+      # IO.puts("You're at #{next_node}")
       {_, _, obj_lst, _, _} = :sys.get_state(:"#{next_node}")
 
       if obj_id in obj_lst do
-        IO.puts("You've arrived at the root node")
+        # IO.puts("You've arrived at the root node")
       else
         # genserver call
         pid = :"#{next_node}"
-        IO.puts("Adding object link")
+        # IO.puts("Adding object link")
         :ok = GenServer.call(pid, {:obj_lnk_add, obj_id, server_id})
-        IO.puts("Added link")
+        # IO.puts("Added link")
         {node, _} = next_hop(obj_id, next_node)
-        # IO.inspect(node, label: "#{next_node} going to")
-        IO.puts("The next closest thing is #{node}")
-        IO.puts("YOUre going to #{node}")
+        # #IO.inspect(node, label: "#{next_node} going to")
+        # IO.puts("The next closest thing is #{node}")
+        # IO.puts("YOUre going to #{node}")
         publish_routing(obj_id, node, server_id)
       end
     end
@@ -650,10 +650,10 @@ req_rng = Range.new(1, numRequests)
 
 # Start supervisor with the input arguments
 {:ok, pid} = DyServer.start_link(1)
-IO.puts("Server Started")
+# IO.puts("Server Started")
 
 # Start the children
-IO.puts("starting the nodes")
+# IO.puts("starting the nodes")
 last = numNodes
 node_ids = []
 node_ids = Other_jobs.start_children(last, 1, node_ids)
@@ -673,10 +673,10 @@ num_obj = 3
 obj_node_ids = []
 obj_node_ids = Other_jobs.spread_objects(node_ids, 1, num_obj, obj_node_ids)
 
-for x <- children do
-  {_, childPid, _, _} = x
-  Nodes.printState(childPid)
-end
+# for x <- children do
+#   {_, childPid, _, _} = x
+#   Nodes.printState(childPid)
+# end
 
 # # Publish the objects
 # for node <- node_ids do
@@ -692,7 +692,7 @@ end
 for x <- req_rng do
   for node <- node_ids do
     request_this = Enum.random(obj_node_ids)
-    IO.puts("Sending Message to #{request_this}")
+    # #IO.puts("Sending Message to #{request_this}")
     # pid = :"#{node}"
     # :ok = GenServer.call(pid, {:request, send_to})
     {send_to, n} = Routing_101.routing_route(request_this, node, 0)
@@ -717,7 +717,7 @@ maxhopList =
   end
 
 flatmaxhopList = List.flatten(maxhopList)
-IO.inspect(flatmaxhopList, label: "maxhopList")
+# #IO.inspect(flatmaxhopList, label: "maxhopList")
 
 maxHop = Enum.max(flatmaxhopList)
 IO.inspect(maxHop, label: "maxHop")
